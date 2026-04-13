@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>심혈관 건강 기록</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; font-size: 16px; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 3px; }
+  .sub { font-size: 13px; color: #888; margin-bottom: 1.25rem; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 1.25rem; overflow-x: auto; padding-bottom: 2px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 8px 18px; font-size: 14px; border: 1px solid #ddd; border-radius: 99px; cursor: pointer; background: #fff; color: #666; white-space: nowrap; flex-shrink: 0; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+  .tab.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .tab-sheet { border-color: #0f9d58; color: #0f9d58; }
+  .tab-sheet:hover { background: #f0faf4; }
+  .section-label { font-size: 11px; font-weight: 700; color: #bbb; letter-spacing: .08em; text-transform: uppercase; margin: 1.25rem 0 0.6rem; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 15px; font-weight: 500; color: #444; }
+  .field input, .field select { padding: 14px; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 18px; background: #fff; color: #1a1a1a; width: 100%; -webkit-appearance: none; }
+  .field input:focus, .field select:focus { outline: none; border-color: #1a1a1a; }
+  .field .unit { font-size: 13px; color: #bbb; margin-top: 2px; }
+  .time-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .time-fields .field { margin-bottom: 0; }
+  .bp-status { font-size: 14px; color: #666; min-height: 24px; margin-bottom: 6px; }
+  .bp-pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 13px; font-weight: 600; margin-left: 6px; }
+  .pill-ok { background: #eaf3de; color: #3b6d11; }
+  .pill-el { background: #faeeda; color: #854f0b; }
+  .pill-h1 { background: #fde8d8; color: #7a3010; }
+  .pill-h2 { background: #fcebeb; color: #a32d2d; }
+  .warn-box { background: #fff3cd; border: 1.5px solid #f0c040; border-radius: 10px; padding: 14px; font-size: 14px; color: #7a5800; margin-bottom: 14px; display: none; line-height: 1.6; }
+  .warn-box.show { display: block; }
+  .warn-title { font-weight: 700; margin-bottom: 4px; font-size: 15px; }
+  .btn { width: 100%; padding: 16px; background: #1a1a1a; color: #fff; border: none; border-radius: 12px; font-size: 17px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  .btn:disabled { opacity: .4; }
+  .status { font-size: 14px; padding: 13px 14px; border-radius: 10px; margin-top: 10px; display: none; line-height: 1.6; }
+  .status.ok   { background: #eaf3de; color: #3b6d11; display: block; }
+  .status.warn { background: #fff3cd; color: #7a5800; display: block; }
+  .status.err  { background: #fcebeb; color: #a32d2d; display: block; }
+  .loading { text-align: center; padding: 2rem 0; font-size: 14px; color: #aaa; }
+  .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #ddd; border-top-color: #888; border-radius: 50%; animation: spin .8s linear infinite; margin-right: 8px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .refresh-btn { font-size: 12px; color: #888; background: none; border: 1px solid #ddd; border-radius: 99px; padding: 4px 12px; cursor: pointer; float: right; margin-top: -2px; }
+  .refresh-btn:hover { background: #f5f5f3; }
+  .metric-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+  .metric-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+  .mc { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 12px 14px; }
+  .mc-label { font-size: 11px; color: #999; margin-bottom: 4px; }
+  .mc-val { font-size: 20px; font-weight: 700; color: #1a1a1a; }
+  .mc-unit { font-size: 11px; color: #bbb; margin-top: 2px; }
+  .avg-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+  .atab { padding: 6px 16px; font-size: 13px; border: 1px solid #ddd; border-radius: 99px; cursor: pointer; background: #fff; color: #888; }
+  .atab.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .chart-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .ctab { padding: 7px 16px; font-size: 13px; border: 1px solid #ddd; border-radius: 99px; cursor: pointer; background: #fff; color: #888; }
+  .ctab.active { background: #f0f0ee; color: #1a1a1a; border-color: #999; font-weight: 600; }
+  .chart-wrap { position: relative; width: 100%; height: 220px; margin-top: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; font-size: 13px; color: #888; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .lsq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .rec-row { padding: 14px 0; border-bottom: 1px solid #f0f0f0; }
+  .rec-row:last-child { border-bottom: none; }
+  .rec-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .rec-date { font-size: 13px; color: #999; }
+  .ampm-badge { font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 700; }
+  .am { background: #e8f4fd; color: #1565c0; }
+  .pm { background: #fde8d8; color: #7a3010; }
+  .rec-vals { display: flex; gap: 16px; }
+  .rv { display: flex; flex-direction: column; }
+  .rv-val { font-size: 17px; font-weight: 700; color: #1a1a1a; }
+  .rv-label { font-size: 11px; color: #bbb; }
+  .empty { font-size: 14px; color: #bbb; text-align: center; padding: 2.5rem 0; line-height: 1.8; }
+  .card { background: #fff; border: 1px solid #e8e8e8; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .sync-bar { font-size: 12px; color: #aaa; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>심혈관 건강 기록</h1>
+  <p class="sub">혈압 · 맥박 · 체중 기록</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('record')">기록 입력</button>
+    <button class="tab" onclick="showTab('chart')">그래프</button>
+    <button class="tab" onclick="showTab('history')">최근 기록</button>
+    <a class="tab tab-sheet" href="https://docs.google.com/spreadsheets/d/1zcvzJ2e9ZhzPQxJ9i5m7Xf2aAFJM7WKYPIwUlPgdMg0/edit?gid=0#gid=0" target="_blank">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      구글 시트
+    </a>
+  </div>
+
+  <!-- 기록 입력 -->
+  <div id="tab-record">
+    <div class="section-label">측정 일시</div>
+    <div class="field">
+      <label>날짜</label>
+      <input type="date" id="mdate">
+    </div>
+    <div class="time-fields">
+      <div class="field">
+        <label>오전 / 오후</label>
+        <select id="ampm">
+          <option value="오전">오전</option>
+          <option value="오후">오후</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>시간</label>
+        <input type="time" id="mtime">
+      </div>
+    </div>
+    <div class="section-label">혈압</div>
+    <div class="field">
+      <label>수축기 (최고)</label>
+      <input type="number" id="systolic" placeholder="120" min="60" max="250" inputmode="numeric" oninput="updateBp()">
+      <span class="unit">mmHg</span>
+    </div>
+    <div class="field">
+      <label>이완기 (최저)</label>
+      <input type="number" id="diastolic" placeholder="80" min="40" max="150" inputmode="numeric" oninput="updateBp()">
+      <span class="unit">mmHg</span>
+    </div>
+    <div class="bp-status" id="bp-status"></div>
+    <div class="warn-box" id="warn-box">
+      <div class="warn-title">⚠ 혈압 주의</div>
+      <div id="warn-msg"></div>
+    </div>
+    <div class="section-label">맥박 · 체중</div>
+    <div class="field">
+      <label>맥박</label>
+      <input type="number" id="pulse" placeholder="72" min="30" max="200" inputmode="numeric">
+      <span class="unit">bpm</span>
+    </div>
+    <div class="field">
+      <label>체중</label>
+      <input type="number" id="weight" placeholder="68.5" step="0.1" min="20" max="200" inputmode="decimal">
+      <span class="unit">kg</span>
+    </div>
+    <div class="field">
+      <label>메모 (선택)</label>
+      <input type="text" id="memo" placeholder="아침 공복, 운동 후...">
+    </div>
+    <button class="btn" id="sbtn" onclick="submitRecord()">구글 시트에 저장하기</button>
+    <div class="status" id="sts"></div>
+  </div>
+
+  <!-- 그래프 -->
+  <div id="tab-chart" style="display:none">
+    <div class="sync-bar">
+      <span id="sync-time-chart">불러오는 중...</span>
+      <button class="refresh-btn" onclick="loadFromSheet('chart')">새로고침</button>
+    </div>
+    <div class="section-label">최근 측정값</div>
+    <div class="metric-grid">
+      <div class="mc"><div class="mc-label">최근 혈압</div><div class="mc-val" id="stat-bp">—</div><div class="mc-unit">mmHg</div></div>
+      <div class="mc"><div class="mc-label">최근 맥박</div><div class="mc-val" id="stat-pulse">—</div><div class="mc-unit">bpm</div></div>
+      <div class="mc"><div class="mc-label">최근 체중</div><div class="mc-val" id="stat-weight">—</div><div class="mc-unit">kg</div></div>
+    </div>
+    <div class="section-label">평균</div>
+    <div class="avg-toggle">
+      <button class="atab active" onclick="switchAvg(7)">7일</button>
+      <button class="atab" onclick="switchAvg(30)">30일</button>
+    </div>
+    <div class="metric-grid-2">
+      <div class="mc"><div class="mc-label" id="avg-label-sys">7일 평균 수축기</div><div class="mc-val" id="avg-sys">—</div><div class="mc-unit">mmHg</div></div>
+      <div class="mc"><div class="mc-label" id="avg-label-dia">7일 평균 이완기</div><div class="mc-val" id="avg-dia">—</div><div class="mc-unit">mmHg</div></div>
+      <div class="mc"><div class="mc-label" id="avg-label-pulse">7일 평균 맥박</div><div class="mc-val" id="avg-pulse">—</div><div class="mc-unit">bpm</div></div>
+      <div class="mc"><div class="mc-label" id="avg-label-weight">7일 평균 체중</div><div class="mc-val" id="avg-weight">—</div><div class="mc-unit">kg</div></div>
+    </div>
+    <div class="section-label">추이</div>
+    <div class="card">
+      <div class="chart-tabs">
+        <button class="ctab active" onclick="switchChart('bp')">혈압</button>
+        <button class="ctab" onclick="switchChart('pulse')">맥박</button>
+        <button class="ctab" onclick="switchChart('weight')">체중</button>
+      </div>
+      <div id="legend-bp" class="legend">
+        <span><span class="lsq" style="background:#378ADD"></span>수축기</span>
+        <span><span class="lsq" style="background:#1D9E75"></span>이완기</span>
+      </div>
+      <div id="legend-pulse" class="legend" style="display:none"><span><span class="lsq" style="background:#D85A30"></span>맥박</span></div>
+      <div id="legend-weight" class="legend" style="display:none"><span><span class="lsq" style="background:#534AB7"></span>체중</span></div>
+      <div class="chart-wrap"><canvas id="mainChart" role="img" aria-label="심혈관 건강 추이">추이 그래프</canvas></div>
+      <div id="no-data-msg" class="empty" style="display:none">아직 기록이 없습니다.</div>
+    </div>
+  </div>
+
+  <!-- 최근 기록 -->
+  <div id="tab-history" style="display:none">
+    <div class="sync-bar">
+      <span id="sync-time-history">불러오는 중...</span>
+      <button class="refresh-btn" onclick="loadFromSheet('history')">새로고침</button>
+    </div>
+    <div id="hist-list"><div class="loading"><span class="loading-spinner"></span>구글 시트에서 불러오는 중...</div></div>
+  </div>
+</div>
+
+<script>
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxEwDk9CyFDfabkFvly0mcnSBwZkAYI77tlEav1rl5jz_yGSnStJW171Qw9N_P2vVtw/exec';
+let records = [];
+let mainChart = null;
+let currentChartType = 'bp';
+let currentAvgDays = 7;
+let lastSyncTime = null;
+
+function setNow() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm   = String(now.getMonth()+1).padStart(2,'0');
+  const dd   = String(now.getDate()).padStart(2,'0');
+  const hh   = now.getHours();
+  const min  = String(now.getMinutes()).padStart(2,'0');
+  const hh12 = hh % 12 === 0 ? 12 : hh % 12;
+  document.getElementById('mdate').value = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('ampm').value  = hh < 12 ? '오전' : '오후';
+  document.getElementById('mtime').value = `${String(hh12).padStart(2,'0')}:${min}`;
+}
+setNow();
+
+async function loadFromSheet(target) {
+  const syncEls = ['chart','history'].map(t => document.getElementById('sync-time-'+t));
+  syncEls.forEach(el => { if(el) el.textContent = '불러오는 중...'; });
+
+  if (target === 'history') {
+    document.getElementById('hist-list').innerHTML = '<div class="loading"><span class="loading-spinner"></span>구글 시트에서 불러오는 중...</div>';
+  }
+
+  try {
+    const res  = await fetch(SHEET_URL + '?t=' + Date.now());
+    const json = await res.json();
+    records = (json.data || []).map(r => ({
+      ...r,
+      systolic:  r.systolic  ? +r.systolic  : null,
+      diastolic: r.diastolic ? +r.diastolic : null,
+      pulse:     r.pulse     ? +r.pulse     : null,
+      weight:    r.weight    ? +r.weight    : null,
+    })).sort((a,b) => (b.iso||'').localeCompare(a.iso||''));
+
+    lastSyncTime = new Date();
+    const timeStr = `${String(lastSyncTime.getHours()).padStart(2,'0')}:${String(lastSyncTime.getMinutes()).padStart(2,'0')} 기준`;
+    syncEls.forEach(el => { if(el) el.textContent = timeStr; });
+
+    if (target === 'chart')   { updateStatCards(); updateAvgCards(currentAvgDays); renderChart(currentChartType); }
+    if (target === 'history') renderHistory();
+  } catch(e) {
+    syncEls.forEach(el => { if(el) el.textContent = '불러오기 실패'; });
+    if (target === 'history') {
+      document.getElementById('hist-list').innerHTML = '<div class="empty">데이터를 불러오지 못했습니다.<br>새로고침을 눌러주세요.</div>';
+    }
+  }
+}
+
+function showTab(tab) {
+  ['record','chart','history'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab:not(.tab-sheet)').forEach((el, i) => {
+    el.classList.toggle('active', ['record','chart','history'][i] === tab);
+  });
+  if (tab === 'chart' || tab === 'history') loadFromSheet(tab);
+}
+
+function updateBp() {
+  const s = parseInt(document.getElementById('systolic').value);
+  const d = parseInt(document.getElementById('diastolic').value);
+  const el = document.getElementById('bp-status');
+  const wb = document.getElementById('warn-box');
+  const wm = document.getElementById('warn-msg');
+  if (!s || !d) { el.innerHTML=''; wb.classList.remove('show'); return; }
+  let label, cls, warn='';
+  if      (s < 120 && d < 80)  { label='정상';         cls='pill-ok'; }
+  else if (s < 130 && d < 80)  { label='주의 (상승)';  cls='pill-el'; warn='수축기 혈압이 정상 범위를 약간 넘었습니다.'; }
+  else if (s < 140 || d < 90)  { label='고혈압 1단계'; cls='pill-h1'; warn='고혈압 1단계입니다. 지속될 경우 의사 상담을 권장합니다.'; }
+  else if (s < 180 && d < 120) { label='고혈압 2단계'; cls='pill-h2'; warn='고혈압 2단계입니다. 가능한 빨리 의사와 상담하세요.'; }
+  else                          { label='고혈압 위기';  cls='pill-h2'; warn='수축기 180 이상 또는 이완기 120 이상입니다. 즉시 의료기관을 방문하세요!'; }
+  el.innerHTML = `혈압 단계: <span class="bp-pill ${cls}">${label}</span>`;
+  if (warn) { wm.textContent=warn; wb.classList.add('show'); }
+  else      { wb.classList.remove('show'); }
+}
+
+function getISO() {
+  const date = document.getElementById('mdate').value;
+  const ampm = document.getElementById('ampm').value;
+  const time = document.getElementById('mtime').value;
+  if (!date || !time) return new Date().toISOString();
+  const [h, m] = time.split(':').map(Number);
+  let h24 = h;
+  if (ampm==='오전' && h===12) h24=0;
+  if (ampm==='오후' && h!==12) h24=h+12;
+  return `${date}T${String(h24).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`;
+}
+
+async function submitRecord() {
+  const sys  = document.getElementById('systolic').value;
+  const dia  = document.getElementById('diastolic').value;
+  const pls  = document.getElementById('pulse').value;
+  const wt   = document.getElementById('weight').value;
+  const memo = document.getElementById('memo').value;
+  const date = document.getElementById('mdate').value;
+  const ampm = document.getElementById('ampm').value;
+  const time = document.getElementById('mtime').value;
+  const st   = document.getElementById('sts');
+  const btn  = document.getElementById('sbtn');
+
+  if (!sys || !dia) { st.className='status err'; st.textContent='혈압(수축기/이완기)은 필수입니다.'; return; }
+
+  btn.disabled=true; btn.textContent='저장 중...';
+  st.className='status'; st.style.display='none';
+
+  const payload = { date, ampm, time, systolic:+sys, diastolic:+dia, pulse:pls?+pls:'', weight:wt?+wt:'', memo:memo||'' };
+
+  try {
+    await fetch(SHEET_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+
+    const sn=+sys, dn=+dia;
+    if (sn>=180||dn>=120)      { st.className='status warn'; st.textContent='저장 완료. ⚠ 혈압이 매우 높습니다. 즉시 의료기관을 방문하세요!'; }
+    else if (sn>=140||dn>=90)  { st.className='status warn'; st.textContent='저장 완료. 혈압이 높은 편입니다. 의사 상담을 권장합니다.'; }
+    else                       { st.className='status ok';   st.textContent='구글 시트에 저장되었습니다!'; }
+    clearForm();
+  } catch(e) {
+    st.className='status err'; st.textContent='네트워크 오류가 발생했습니다.';
+  }
+  btn.disabled=false; btn.textContent='구글 시트에 저장하기';
+}
+
+function clearForm() {
+  ['systolic','diastolic','pulse','weight','memo'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('bp-status').innerHTML='';
+  document.getElementById('warn-box').classList.remove('show');
+  setNow();
+}
+
+function renderHistory() {
+  const el = document.getElementById('hist-list');
+  if (!records.length) { el.innerHTML='<div class="empty">아직 기록이 없습니다.</div>'; return; }
+  el.innerHTML = records.slice(0,50).map(r => {
+    const apCls = r.ampm==='오전' ? 'am' : 'pm';
+    return `
+    <div class="rec-row">
+      <div class="rec-top">
+        <span class="rec-date">${r.date||'—'} ${r.time||''}</span>
+        <span class="ampm-badge ${apCls}">${r.ampm||''}</span>
+      </div>
+      <div class="rec-vals">
+        <div class="rv"><span class="rv-val">${r.systolic||'—'}/${r.diastolic||'—'}</span><span class="rv-label">mmHg</span></div>
+        <div class="rv"><span class="rv-val">${r.pulse||'—'}</span><span class="rv-label">맥박</span></div>
+        <div class="rv"><span class="rv-val">${r.weight!=null&&r.weight!==''?(+r.weight).toFixed(1):'—'}</span><span class="rv-label">kg</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStatCards() {
+  const r = records[0];
+  document.getElementById('stat-bp').textContent     = r ? `${r.systolic}/${r.diastolic}` : '—';
+  document.getElementById('stat-pulse').textContent  = (r&&r.pulse)  ? r.pulse  : '—';
+  document.getElementById('stat-weight').textContent = (r&&r.weight) ? (+r.weight).toFixed(1) : '—';
+}
+
+function switchAvg(days) {
+  currentAvgDays=days;
+  document.querySelectorAll('.atab').forEach((el,i)=>el.classList.toggle('active',[7,30][i]===days));
+  updateAvgCards(days);
+}
+
+function updateAvgCards(days) {
+  const cutoff = new Date(Date.now()-days*86400000);
+  const recent = records.filter(r=>r.iso&&new Date(r.iso)>=cutoff);
+  const avg = key => {
+    const vals=recent.map(r=>r[key]).filter(v=>v!==null&&v!==''&&!isNaN(v));
+    return vals.length ? vals.reduce((a,b)=>a+ +b,0)/vals.length : null;
+  };
+  ['sys','dia','pulse','weight'].forEach(k=>{
+    document.getElementById(`avg-label-${k}`).textContent=`${days}일 평균 ${{sys:'수축기',dia:'이완기',pulse:'맥박',weight:'체중'}[k]}`;
+  });
+  const fmt=(v,d=0)=>v!==null?v.toFixed(d):'—';
+  document.getElementById('avg-sys').textContent    = fmt(avg('systolic'));
+  document.getElementById('avg-dia').textContent    = fmt(avg('diastolic'));
+  document.getElementById('avg-pulse').textContent  = fmt(avg('pulse'));
+  document.getElementById('avg-weight').textContent = fmt(avg('weight'),1);
+}
+
+function switchChart(type) {
+  currentChartType=type;
+  document.querySelectorAll('.ctab').forEach((el,i)=>el.classList.toggle('active',['bp','pulse','weight'][i]===type));
+  ['bp','pulse','weight'].forEach(t=>document.getElementById('legend-'+t).style.display=t===type?'flex':'none');
+  renderChart(type);
+}
+
+function renderChart(type) {
+  const sorted=[...records].sort((a,b)=>(a.iso||'').localeCompare(b.iso||''));
+  const noData=document.getElementById('no-data-msg');
+  const canvas=document.getElementById('mainChart');
+  if (!sorted.length) {
+    noData.style.display='block'; canvas.style.display='none';
+    if(mainChart){mainChart.destroy();mainChart=null;} return;
+  }
+  noData.style.display='none'; canvas.style.display='block';
+  const labels=sorted.map(r=>`${(r.date||'').slice(5)} ${r.ampm==='오전'?'AM':'PM'}`);
+  let datasets;
+  if (type==='bp') {
+    datasets=[
+      {label:'수축기',data:sorted.map(r=>r.systolic), borderColor:'#378ADD',backgroundColor:'rgba(55,138,221,0.08)',tension:0.35,pointRadius:3,pointHoverRadius:6,fill:false},
+      {label:'이완기',data:sorted.map(r=>r.diastolic),borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',tension:0.35,pointRadius:3,pointHoverRadius:6,fill:false,borderDash:[5,4]}
+    ];
+  } else if (type==='pulse') {
+    datasets=[{label:'맥박',data:sorted.map(r=>r.pulse),borderColor:'#D85A30',backgroundColor:'rgba(216,90,48,0.08)',tension:0.35,pointRadius:3,pointHoverRadius:6,fill:false}];
+  } else {
+    datasets=[{label:'체중',data:sorted.map(r=>r.weight),borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',tension:0.35,pointRadius:3,pointHoverRadius:6,fill:false}];
+  }
+  if (mainChart) mainChart.destroy();
+  mainChart=new Chart(canvas.getContext('2d'),{
+    type:'line',data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
+      scales:{
+        x:{ticks:{color:'#aaa',font:{size:11},maxRotation:40,autoSkip:true},grid:{color:'rgba(0,0,0,0.05)'}},
+        y:{ticks:{color:'#aaa',font:{size:11}},grid:{color:'rgba(0,0,0,0.05)'}}
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
